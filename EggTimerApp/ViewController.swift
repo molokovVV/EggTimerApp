@@ -6,6 +6,7 @@
 //
 
 import UIKit
+import AVFoundation
 
 class ViewController: UIViewController {
     
@@ -37,62 +38,13 @@ class ViewController: UIViewController {
         return stack
     }()
     
-    private lazy var softImageView: UIImageView = {
-        let image = UIImageView()
-        image.image = UIImage(named: "soft_egg")
-        image.contentMode = .scaleAspectFit
-        image.isUserInteractionEnabled = true
-        image.translatesAutoresizingMaskIntoConstraints = false
-        return image
-    }()
+    private let softImageView = UIImageView(imageName: "soft_egg")
+    private let mediumImageView = UIImageView(imageName: "medium_egg")
+    private let hardImageView = UIImageView(imageName: "hard_egg")
     
-    private lazy var softButton: UIButton = {
-        let button = UIButton(type: .system)
-        button.setTitle("Soft", for: .normal)
-        button.titleLabel?.font = .systemFont(ofSize: 18, weight: .black)
-        button.tintColor = .white
-        button.addTarget(self, action: #selector(eggsButtonTapped), for: .touchUpInside)
-        button.translatesAutoresizingMaskIntoConstraints = false
-        return button
-    }()
-    
-    private lazy var mediumImageView: UIImageView = {
-        let image = UIImageView()
-        image.image = UIImage(named: "medium_egg")
-        image.contentMode = .scaleAspectFit
-        image.isUserInteractionEnabled = true
-        image.translatesAutoresizingMaskIntoConstraints = false
-        return image
-    }()
-    
-    private lazy var mediumButton: UIButton = {
-        let button = UIButton(type: .system)
-        button.setTitle("Medium", for: .normal)
-        button.titleLabel?.font = .systemFont(ofSize: 18, weight: .black)
-        button.tintColor = .white
-        button.addTarget(self, action: #selector(eggsButtonTapped), for: .touchUpInside)
-        button.translatesAutoresizingMaskIntoConstraints = false
-        return button
-    }()
-    
-    private lazy var hardImageView: UIImageView = {
-        let image = UIImageView()
-        image.image = UIImage(named: "hard_egg")
-        image.contentMode = .scaleAspectFit
-        image.isUserInteractionEnabled = true
-        image.translatesAutoresizingMaskIntoConstraints = false
-        return image
-    }()
-    
-    private lazy var hardButton: UIButton = {
-        let button = UIButton(type: .system)
-        button.setTitle("Hard", for: .normal)
-        button.titleLabel?.font = .systemFont(ofSize: 18, weight: .black)
-        button.tintColor = .white
-        button.addTarget(self, action: #selector(eggsButtonTapped), for: .touchUpInside)
-        button.translatesAutoresizingMaskIntoConstraints = false
-        return button
-    }()
+    private let softButton = UIButton(text: "Soft")
+    private let mediumButton = UIButton(text: "Medium")
+    private let hardButton = UIButton(text: "Hard")
     
     private lazy var timerView: UIView = {
         let view = UIView()
@@ -103,10 +55,21 @@ class ViewController: UIViewController {
     
     private lazy var progressView: UIProgressView = {
         let view = UIProgressView()
-        
+        view.progressTintColor = .systemYellow
+        view.trackTintColor = .systemGray
         view.translatesAutoresizingMaskIntoConstraints = false
         return view
     }()
+    
+// MARK: -  Properties
+    
+    private let eggTimes = ["Soft": 300, "Medium": 420, "Hard": 720]
+    private var totalTime = 0
+    private var secondPassed = 0
+    private var timer = Timer()
+    private var player: AVAudioPlayer?
+    private var nameSoundTimer = "Alarm_sound"
+    
 
 // MARK: - Life Cycle
     
@@ -116,9 +79,47 @@ class ViewController: UIViewController {
         setViews()
         setupConstraints()
     }
+// MARK: - Buisness Logic
+    
+    private func playSound(_ soundName: String) {
+        guard let url = Bundle.main.url(forResource: soundName, withExtension: "mp3") else { return }
+        
+        player = try! AVAudioPlayer(contentsOf: url)
+        player?.play()
+    }
     
     @objc private func eggsButtonTapped(_ sender: UIButton) {
+        timer.invalidate()
+        progressView.setProgress(0, animated: true)
+        secondPassed = 0
         
+        let hardness = sender.titleLabel?.text ?? "error"
+        
+        titleLabel.text = "You should \(hardness)"
+        
+        totalTime = eggTimes[hardness] ?? 0
+        
+        timer = Timer.scheduledTimer(timeInterval: 1, 
+                                     target: self, 
+                                     selector: #selector(updateTimer), 
+                                     userInfo: nil, 
+                                     repeats: true)
+    }
+    
+    @objc private func updateTimer() {
+        if secondPassed < totalTime {
+            secondPassed += 1
+            
+            let percentageProgress = Float(secondPassed) / Float(totalTime)
+            
+            progressView.setProgress(percentageProgress, animated: true)
+        } else {
+            playSound(nameSoundTimer)
+            timer.invalidate()
+            secondPassed = 0
+            titleLabel.text = "That's done! Let's go repeat?"
+            progressView.setProgress(1, animated: true)
+        }
     }
 }
 
@@ -140,6 +141,10 @@ extension ViewController {
         softImageView.addSubview(softButton)
         mediumImageView.addSubview(mediumButton)
         hardImageView.addSubview(hardButton)
+        
+        softButton.addTarget(self, action: #selector(eggsButtonTapped), for: .touchUpInside)
+        mediumButton.addTarget(self, action: #selector(eggsButtonTapped), for: .touchUpInside)
+        hardButton.addTarget(self, action: #selector(eggsButtonTapped), for: .touchUpInside)
         
         timerView.addSubview(progressView)
     }
@@ -173,3 +178,22 @@ extension ViewController {
     }
 }
 
+extension UIButton {
+    convenience init(text: String) {
+        self.init(type: .system)
+        self.setTitle(text, for: .normal)
+        self.titleLabel?.font = .systemFont(ofSize: 18, weight: .black)
+        self.tintColor = .white
+        self.translatesAutoresizingMaskIntoConstraints = false
+    }
+}
+
+extension UIImageView {
+    convenience init(imageName: String) {
+        self.init()
+        self.image = UIImage(named: imageName)
+        self.contentMode = .scaleAspectFit
+        self.isUserInteractionEnabled = true
+        self.translatesAutoresizingMaskIntoConstraints = false
+    }
+}
